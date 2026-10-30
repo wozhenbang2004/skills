@@ -45,6 +45,7 @@ function createShaClientMock(overrides: Partial<Record<string, ReturnType<typeof
     init: overrides.init ?? vi.fn().mockResolvedValue(undefined),
     addRemote: overrides.addRemote ?? vi.fn().mockResolvedValue(undefined),
     fetch: overrides.fetch ?? vi.fn().mockResolvedValue(undefined),
+    raw: overrides.raw ?? vi.fn().mockResolvedValue(''),
     checkout: overrides.checkout ?? vi.fn().mockResolvedValue(undefined),
     env,
   };
@@ -415,6 +416,11 @@ describe('git clone fallbacks', () => {
     ]);
     expect(shaClient.fetch).toHaveBeenCalledWith(['--depth', '1', 'origin', FULL_SHA]);
     expect(shaClient.checkout).toHaveBeenCalledWith('FETCH_HEAD');
+    if (process.platform === 'win32') {
+      expect(shaClient.raw).toHaveBeenCalledWith(['config', '--local', 'core.longpaths', 'true']);
+    } else {
+      expect(shaClient.raw).not.toHaveBeenCalled();
+    }
   });
 
   it('does not attempt the SHA fetch for a non-SHA ref', async () => {
