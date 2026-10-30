@@ -5,6 +5,18 @@ import { join, sep } from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cloneRepo } from '../src/git.ts';
 
+vi.mock('simple-git', async () => {
+  const actual = await vi.importActual<typeof import('simple-git')>('simple-git');
+  return {
+    ...actual,
+    default: (options: Partial<import('simple-git').SimpleGitOptions>) =>
+      actual.default(options).outputHandler((command, _stdout, stderr, args) => {
+        console.error('Git invocation:', command, args);
+        stderr.on('data', (data) => console.error(data.toString()));
+      }),
+  };
+});
+
 function runGit(args: string[], cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile('git', args, { cwd, encoding: 'utf8' }, (error, stdout) => {
