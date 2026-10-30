@@ -5,6 +5,32 @@ import { join, sep } from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cloneRepo } from '../src/git.ts';
 
+vi.mock('simple-git', async () => {
+  const actual = await vi.importActual<typeof import('simple-git')>('simple-git');
+  const { readFile } = await import('fs/promises');
+  const { join } = await import('path');
+  return {
+    ...actual,
+    default: (options: Partial<import('simple-git').SimpleGitOptions>) => {
+      const client = actual.default(options).outputHandler((command, _stdout, stderr, args) => {
+        console.error('Git invocation:', command, args);
+        stderr.on('data', (data) => console.error(data.toString()));
+      });
+      const checkout = client.checkout.bind(client);
+      client.checkout = (async (ref: string) => {
+        const gitDir = (await client.raw(['rev-parse', '--absolute-git-dir'])).trim();
+        console.error(
+          'Effective longpaths:',
+          await client.raw(['config', '--show-origin', '--get-all', 'core.longpaths'])
+        );
+        console.error('Temporary repository config:', await readFile(join(gitDir, 'config'), 'utf8'));
+        return checkout(ref);
+      }) as typeof client.checkout;
+      return client;
+    },
+  };
+});
+
 function runGit(args: string[], cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile('git', args, { cwd, encoding: 'utf8' }, (error, stdout) => {
