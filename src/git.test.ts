@@ -142,6 +142,7 @@ describe('git clone fallbacks', () => {
     expect(simpleGitMock).toHaveBeenCalledWith(
       expect.objectContaining({
         config: [
+          ...(process.platform === 'win32' ? ['core.longpaths=true'] : []),
           'filter.lfs.required=false',
           'filter.lfs.smudge=',
           'filter.lfs.clean=',
@@ -209,7 +210,43 @@ describe('git clone fallbacks', () => {
     expect(execFileMock).toHaveBeenNthCalledWith(
       2,
       'gh',
-      ['repo', 'clone', 'Giphy/giphy-codex-skills', tempDir, '--', '--depth=1'],
+      [
+        'repo',
+        'clone',
+        'Giphy/giphy-codex-skills',
+        tempDir,
+        '--',
+        '--depth=1',
+        ...(process.platform === 'win32' ? ['-c', 'core.longpaths=true'] : []),
+      ],
+      expect.any(Object),
+      expect.any(Function)
+    );
+  });
+
+  it('preserves the requested ref in the gh clone fallback', async () => {
+    const primaryClone = vi.fn().mockRejectedValue(new Error('fatal: Authentication failed'));
+    simpleGitMock.mockReturnValueOnce(createGitClientMock(primaryClone));
+    mockExecFileSuccess('Git operations protocol: https\n');
+    mockExecFileSuccess();
+
+    const tempDir = await cloneRepo('https://github.com/acme/skills.git', 'release');
+    createdDirs.push(tempDir);
+
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      2,
+      'gh',
+      [
+        'repo',
+        'clone',
+        'acme/skills',
+        tempDir,
+        '--',
+        '--depth=1',
+        '--branch',
+        'release',
+        ...(process.platform === 'win32' ? ['-c', 'core.longpaths=true'] : []),
+      ],
       expect.any(Object),
       expect.any(Function)
     );
@@ -236,7 +273,15 @@ describe('git clone fallbacks', () => {
     expect(execFileMock).toHaveBeenNthCalledWith(
       2,
       'gh',
-      ['repo', 'clone', 'acme/agent-skills', tempDir, '--', '--depth=1'],
+      [
+        'repo',
+        'clone',
+        'acme/agent-skills',
+        tempDir,
+        '--',
+        '--depth=1',
+        ...(process.platform === 'win32' ? ['-c', 'core.longpaths=true'] : []),
+      ],
       expect.any(Object),
       expect.any(Function)
     );
