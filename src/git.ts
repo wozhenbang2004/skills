@@ -178,6 +178,8 @@ function createGitClient(extraEnv?: NodeJS.ProcessEnv) {
     //
     // Reported downstream: heygen-com/hyperframes#407.
     config: [
+      // Git for Windows otherwise rejects paths longer than MAX_PATH.
+      ...(process.platform === 'win32' ? ['core.longpaths=true'] : []),
       'filter.lfs.required=false',
       'filter.lfs.smudge=',
       'filter.lfs.clean=',
@@ -252,6 +254,9 @@ async function tryGhClone(repo: GitHubRepoInfo, tempDir: string, ref?: string): 
   }
 
   const gitFlags = ref ? ['--depth=1', '--branch', ref] : ['--depth=1'];
+  if (process.platform === 'win32') {
+    gitFlags.push('-c', 'core.longpaths=true');
+  }
   await execFileAsync('gh', ['repo', 'clone', cloneTarget, tempDir, '--', ...gitFlags], {
     timeout: CLONE_TIMEOUT_MS,
     env: {
