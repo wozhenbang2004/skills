@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
-import { dirname, join, sep } from 'path';
+import { join, sep } from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cloneRepo } from '../src/git.ts';
 
@@ -42,10 +42,14 @@ describe('cloneRepo long paths', () => {
     );
     expect(relativePath.length).toBeGreaterThan(260);
     const contents = '---\nname: long-path-skill\ndescription: Regression fixture\n---\n';
-    await mkdir(dirname(join(source, relativePath)), { recursive: true });
-    await writeFile(join(source, relativePath), contents);
-    await runGit(['-c', 'core.longpaths=true', 'add', '.'], source);
-    // Create the commit without scanning the long working tree for status.
+    // Build the Git tree without traversing a long source working tree.
+    const fixtureFile = join(root, 'fixture.md');
+    await writeFile(fixtureFile, contents);
+    const blob = (await runGit(['hash-object', '-w', fixtureFile], source)).trim();
+    await runGit(
+      ['update-index', '--add', '--cacheinfo', `100644,${blob},${relativePath.split(sep).join('/')}`],
+      source
+    );
     const tree = (await runGit(['write-tree'], source)).trim();
     const sha = (await runGit(['commit-tree', tree, '-m', 'fixture'], source)).trim();
     await runGit(['update-ref', 'HEAD', sha], source);
