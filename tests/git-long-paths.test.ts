@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
-import { dirname, join } from 'path';
+import { dirname, join, sep } from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cloneRepo } from '../src/git.ts';
 
@@ -45,8 +45,13 @@ describe('cloneRepo long paths', () => {
     await mkdir(dirname(join(source, relativePath)), { recursive: true });
     await writeFile(join(source, relativePath), contents);
     await runGit(['-c', 'core.longpaths=true', 'add', '.'], source);
-    await runGit(['-c', 'core.longpaths=true', 'commit', '-m', 'fixture'], source);
-    const sha = (await runGit(['rev-parse', 'HEAD'], source)).trim();
+    // Create the commit without scanning the long working tree for status.
+    const tree = (await runGit(['write-tree'], source)).trim();
+    const sha = (await runGit(['commit-tree', tree, '-m', 'fixture'], source)).trim();
+    await runGit(['update-ref', 'HEAD', sha], source);
+    expect((await runGit(['ls-tree', '-r', '--name-only', 'HEAD'], source)).trim()).toBe(
+      relativePath.split(sep).join('/')
+    );
 
     const cloneDir = await cloneRepo(source, pinned ? sha : undefined);
     tempDirs.push(cloneDir);
