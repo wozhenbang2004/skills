@@ -71,6 +71,9 @@ async function cloneAtSha(
   const git = createGitClient(extraEnv);
   await git.cwd(tempDir);
   await git.init();
+  if (process.platform === 'win32') {
+    await git.raw(['config', '--local', 'core.longpaths', 'true']);
+  }
   await git.addRemote('origin', url);
   await git.fetch(['--depth', '1', 'origin', sha]);
   await git.checkout('FETCH_HEAD');
